@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulação de Buraco de Minhoca - Efeito Bloom Neon</title>
+    <title>Simulação Absoluta de Buraco de Minhoca - Tríade MHD+SAMS+SROS</title>
     <style>
         * {
             margin: 0;
@@ -14,18 +14,19 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #000;
+            background-color: #000003;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        #canvas-container {
-            width: 100%;
-            height: 100%;
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
             position: absolute;
             top: 0;
             left: 0;
             z-index: 1;
         }
-        /* HUD de Telemetria */
+        /* Painel HUD Técnico */
         #hud {
             position: absolute;
             top: 20px;
@@ -36,12 +37,12 @@
             padding: 20px;
             border-radius: 8px;
             border: 1px solid #00ffcc;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
             pointer-events: none;
             max-width: 320px;
         }
         h1 {
-            font-size: 16px;
+            font-size: 15px;
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 12px;
@@ -71,177 +72,163 @@
             transform: translateX(-50%);
             z-index: 10;
             background: rgba(0, 5, 15, 0.9);
-            padding: 12px 25px;
+            padding: 10px 20px;
             border-radius: 30px;
             border: 1px solid #ff00ff;
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.2);
             color: #fff;
-            font-size: 13px;
-            pointer-events: auto;
+            font-size: 12px;
+            pointer-events: none;
             text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container"></div>
+    <!-- Tela de Renderização Nativa -->
+    <canvas id="wormholeCanvas"></canvas>
 
+    <!-- HUD de Telemetria Sci-Fi -->
     <div id="hud">
         <h1>Métrica Einstein-Rosen</h1>
-        <div class="status-item">STATUS DO PORTAL: <span class="status-value flash" style="color: #00ff55;">HIPER-ESTÁVEL</span></div>
-        <div class="status-item">MHD ENERGY: <span class="status-value" id="mhd-val">Extraindo Vácuo...</span></div>
-        <div class="status-item">SAMS CINETICS: <span class="status-value" style="color: #ffaa00;">Fluido Ativo (Filtro Bloom)</span></div>
-        <div class="status-item">SROS ALIGNMENT: <span class="status-value" id="sros-val">100% Full Duplex</span></div>
+        <div class="status-item">STATUS DO PORTAL: <span class="status-value flash" style="color: #00ff55;">MHD + SAMS OPERACIONAIS</span></div>
+        <div class="status-item">MHD ENERGETICS: <span class="status-value" id="mhd-val">0.00 Eq/Plck</span></div>
+        <div class="status-item">SAMS CINETICS: <span class="status-value" style="color: #ffaa00;">Fluido MR Estabilizado</span></div>
+        <div class="status-item">SROS ALIGNMENT: <span class="status-value" id="sros-val">100% Sincronizado</span></div>
         <div class="status-item" style="margin-top: 10px; border-top: 1px dashed #ff00ff; padding-top: 8px;">
-            FILTRO QUANTICO: <span class="status-value" style="color: #ff00ff;">Pós-Processamento Ativo</span>
+            SISTEMA INTEGRADO: <span class="status-value" style="color: #ff00ff;">Motor de Dobra Ativo</span>
         </div>
     </div>
 
     <div id="controls">
-        🖱️ <b>Interação Ativa:</b> Clique, arraste e use o scroll para navegar pelo vácuo quântico.
+        🌌 <b>Simulação Autônoma:</b> Movendo pelo tecido do vácuo quântico a velocidades relativísticas.
     </div>
 
-    <!-- Scripts do Three.js na mesma versão para evitar conflito -->
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    
-    <!-- Scripts de Pós-Processamento (Essenciais para o efeito Bloom/Neon) -->
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
-
     <script>
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000005, 0.02);
+        const canvas = document.getElementById('wormholeCanvas');
+        const ctx = canvas.getContext('2d');
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 25;
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
-
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.maxDistance = 50;
-        controls.minDistance = 2;
-
-        // --- PIPELINE DE PÓS-PROCESSAMENTO (BLOOM) ---
-        const renderScene = new THREE.RenderPass(scene, camera);
-        
-        // Parâmetros do UnrealBloomPass: (resolução, intensidade do brilho, raio do brilho, corte de luz)
-        const bloomPass = new THREE.UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight), 
-            2.5,  // Intensidade do Brilho (Neon forte)
-            0.4,  // Raio do espalhamento da luz
-            0.1   // Limiar de luminância (quais cores brilham)
-        );
-
-        const composer = new THREE.EffectComposer(renderer);
-        composer.addPass(renderScene);
-        composer.addPass(bloomPass);
-
-        // --- GEOMETRIA DO TÚNEL (BURACO DE MINHOCA) ---
-        const points = [];
-        for (let i = 0; i < 100; i++) {
-            let radius = 5 + Math.pow((i - 50) * 0.25, 2); 
-            let angle = i * 0.4;
-            points.push(new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius, (i - 50) * 1.5));
+        // Ajusta o tamanho do Canvas para preencher a tela inteira
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         }
-        
-        const tubeCurve = new THREE.CatmullRomCurve3(points);
-        const tubeGeometry = new THREE.TubeGeometry(tubeCurve, 100, 3.5, 20, false);
+        window.addEventListener('resize', resize);
+        resize();
 
-        // Material com cor forte para reagir intensamente ao Bloom
-        const tubeMaterial = new THREE.MeshBasicMaterial({
-            color: 0x0066ff,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.4,
-            blending: THREE.AdditiveBlending
-        });
-        const wormholeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
-        scene.add(wormholeMesh);
+        // Parâmetros do Algoritmo Cósmico
+        const particleCount = 450;
+        const particles = [];
+        let speed = 0.04; // Velocidade de aproximação do túnel
+        let rotationAngle = 0;
 
-        // --- FLUXO DE PARTÍCULAS QUANTICAS ---
-        const particleCount = 2000; // Aumentado para gerar mais pontos de luz
-        const particleGeometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-
+        // Configuração inicial das partículas em coordenadas 3D falsas (X, Y, Z)
         for (let i = 0; i < particleCount; i++) {
-            let t = Math.random();
-            let point = tubeCurve.getPoint(t);
+            // Distribui as partículas em formato circular ao longo de um tubo de profundidade Z
             let angle = Math.random() * Math.PI * 2;
-            let pRadius = Math.random() * 3.2; 
-
-            positions[i * 3] = point.x + Math.cos(angle) * pRadius;
-            positions[i * 3 + 1] = point.y + Math.sin(angle) * pRadius;
-            positions[i * 3 + 2] = point.z;
-
-            // Paleta Neon: Ciano (SROS) e Magenta (Energia Negativa)
-            let mixColor = Math.random() > 0.5 ? new THREE.Color(0x00ffff) : new THREE.Color(0xff00ff);
-            colors[i * 3] = mixColor.r;
-            colors[i * 3 + 1] = mixColor.g;
-            colors[i * 3 + 2] = mixColor.b;
+            let radius = 100 + Math.random() * 200; 
+            
+            particles.push({
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius,
+                z: Math.random() * 1000, // Profundidade inicial
+                color: Math.random() > 0.5 ? '#00ffff' : '#ff00ff', // Azul SROS ou Magenta de Energia Negativa
+                size: 1 + Math.random() * 2
+            });
         }
 
-        particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        // Centro da tela (A Garganta do Buraco de Minhoca)
+        let centerX = canvas.width / 2;
+        let centerY = canvas.height / 2;
 
-        const particleMaterial = new THREE.PointsMaterial({
-            size: 0.4,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending
-        });
+        let time = 0;
 
-        const quantumFlow = new THREE.Points(particleGeometry, particleMaterial);
-        scene.add(quantumFlow);
+        // Loop de Renderização Principal
+        function draw() {
+            // Limpa a tela com um rastro preto semitransparente para criar o efeito "Motion Blur" de velocidade
+            ctx.fillStyle = 'rgba(0, 0, 3, 0.12)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // --- LOOP DE ANIMAÇÃO ---
-        let clock = new THREE.Clock();
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+            time += 0.02;
+            rotationAngle += 0.003;
 
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const elapsedTime = clock.getElapsedTime();
-            const timeData = particleGeometry.attributes.position.array;
+            // Ordena as partículas pela profundidade (Z) para renderizar as do fundo primeiro (Física de Oclusão)
+            particles.sort((a, b) => b.z - a.z);
 
-            wormholeMesh.rotation.z = elapsedTime * 0.05;
-            quantumFlow.rotation.z = -elapsedTime * 0.08;
-
-            // Movimento das partículas acelerado (Simulando Dobra Cósmica)
             for (let i = 0; i < particleCount; i++) {
-                timeData[i * 3 + 2] += 0.6; 
+                let p = particles[i];
 
-                if (timeData[i * 3 + 2] > 75) {
-                    timeData[i * 3 + 2] = -75;
+                // Faz a partícula avançar em direção ao observador (diminuindo a distância Z)
+                p.z -= speed * 150;
+
+                // Se a partícula passou da tela (Z <= 0), ela é reinjetada no fundo do túnel (Loop Infinito)
+                if (p.z <= 0) {
+                    p.z = 1000;
+                    let angle = Math.random() * Math.PI * 2;
+                    let radius = 120 + Math.random() * 180;
+                    p.x = Math.cos(angle) * radius;
+                    p.y = Math.sin(angle) * radius;
+                    p.color = Math.random() > 0.5 ? '#00ffff' : '#ff00ff';
+                }
+
+                // --- MATEMÁTICA DE PROJEÇÃO 3D PARA 2D ---
+                // Quanto mais perto (Z menor), mais afastada do centro a partícula é projetada
+                let factor = 300 / p.z; 
+                
+                // Rotaciona as coordenadas levemente para criar o efeito espiral do reator MHD
+                let cosR = Math.cos(rotationAngle);
+                let sinR = Math.sin(rotationAngle);
+                let rotX = p.x * cosR - p.y * sinR;
+                let rotY = p.x * sinR + p.y * cosR;
+
+                let screenX = centerX + rotX * factor;
+                let screenY = centerY + rotY * factor;
+                let radiusOnScreen = p.size * factor;
+
+                // Desenha apenas se estiver dentro dos limites visuais da tela
+                if (screenX >= 0 && screenX <= canvas.width && screenY >= 0 && screenY <= canvas.height && p.z > 10) {
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, radiusOnScreen, 0, Math.PI * 2);
+                    
+                    // Aplica o Brilho Neon (Efeito Bloom via Hardware de forma nativa)
+                    ctx.shadowBlur = radiusOnScreen * 3;
+                    ctx.shadowColor = p.color;
+                    
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
                 }
             }
-            particleGeometry.attributes.position.needsUpdate = true;
 
-            // Efeito pulsar dinâmico na intensidade do Bloom simulando oscilação do Reator MHD
-            bloomPass.bloomIntensity = 2.0 + Math.sin(elapsedTime * 4) * 0.5;
+            // Desenha as "Cerdas de Laser" do SROS conectando os lados do túnel de forma dinâmica
+            ctx.shadowBlur = 0; // Desativa o glow pesado para as linhas para não travar o navegador
+            for (let i = 0; i < particles.length - 1; i += 25) {
+                let p1 = particles[i];
+                let p2 = particles[i+1];
+                
+                let f1 = 300 / p1.z;
+                let f2 = 300 / p2.z;
 
-            document.getElementById('mhd-val').innerText = (120.5 + Math.sin(elapsedTime * 6) * 2.1).toFixed(2) + " Eq/Plck";
-            document.getElementById('sros-val').innerText = "Sincronizado (" + (100 - Math.random()*0.02).toFixed(4) + "%)";
+                if (p1.z > 50 && p2.z > 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(centerX + p1.x * f1, centerY + p1.y * f1);
+                    ctx.lineTo(centerX + p2.x * f2, centerY + p2.y * f2);
+                    ctx.strokeStyle = 'rgba(0, 255, 204, 0.08)';
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
 
-            controls.update();
-            
-            // Renderização através do COMPOSER (Aplica os filtros de luz)
-            composer.render();
+            // Atualiza os dados matemáticos falsos no painel HUD para dar vida à interface
+            document.getElementById('mhd-val').innerText = (143.0 + Math.sin(time * 3) * 1.8).toFixed(2) + " Eq/Plck";
+            document.getElementById('sros-val').innerText = "Estável (" + (100 - Math.random()*0.01).toFixed(4) + "%)";
+
+            requestAnimationFrame(draw);
         }
 
-        window.addEventListener('resize', onWindowResize, false);
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+        // Inicia o motor gráfico nativo
+        draw();
+    </script>
+</body>
+</html>
